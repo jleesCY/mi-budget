@@ -1,0 +1,212 @@
+package com.jlees.mibudget.icons
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import com.caverock.androidsvg.PreserveAspectRatio
+import com.caverock.androidsvg.RenderOptions
+import com.caverock.androidsvg.SVG
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.unit.dp
+import org.json.JSONObject
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.roundToInt
+import java.util.Optional
+
+/** A brand's logo: a single-path monochrome glyph, or an SVG (full color, or mono to be tinted). */
+sealed interface BrandIcon {
+    class Glyph(val vector: ImageVector) : BrandIcon
+    class Svg(val svg: String, val mono: Boolean) : BrandIcon
+}
+
+/**
+ * Offline brand catalog: names, aliases, colors and default categories from assets/brands.json,
+ * logos from assets/brand_icons.json (filled by `./gradlew :app:fetchBrandIcons`).
+ */
+class BrandCatalog(context: Context) {
+    private val assets = context.applicationContext.assets
+
+    /*
+     * The catalog (~1 MB of JSON) is read on first use, not while the app starts on the main thread;
+     * MiApp warms it up in the background right after launch ([preload]).
+     */
+    val matcher: BrandMatcher by lazy {
+        val brandsJson = JSONObject(assets.open("brands.json").bufferedReader().use { it.readText() })
+        val arr = brandsJson.getJSONArray("brands")
+        val brands = (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            val aliases = o.optJSONArray("aliases")
+            Brand(
+                id = o.getString("id"),
+                name = o.getString("name"),
+                color = parseColor(o.optString("color", "#757575")),
+                category = o.optString("category").ifBlank { null },
+                subscription = o.optBoolean("subscription", false),
+                aliases = if (aliases == null) emptyList() else (0 until aliases.length()).map { aliases.getString(it) },
+                payment = o.optBoolean("payment", false),
+                strict = o.optBoolean("strict", false),
+            )
+        }
+        BrandMatcher(brands)
+    }
+
+    /** brand id → raw icon entry: ("p" + path) or ("s" + svg, mono). */
+    private val iconEntries: Map<String, Pair<String, Boolean?>> by lazy {
+        runCatching {
+            val root = JSONObject(assets.open("brand_icons.json").bufferedReader().use { it.readText() })
+            val obj = root.getJSONObject("icons")
+            obj.keys().asSequence().mapNotNull { id ->
+                val e = obj.getJSONObject(id)
+                when {
+                    e.has("path") -> id to ("p" + e.getString("path") to null)
+                    e.has("svg") -> id to ("s" + e.getString("svg") to e.optBoolean("mono", false))
+                    else -> null
+                }
+            }.toMap()
+        }.getOrDefault(emptyMap())
+    }
+
+    /** The brand behind an item's icon setting [ref] (its name matched when it's automatic), if it has a logo. */
+    fun brandFor(ref: String?, name: String): Brand? = when (val parsed = IconRef.parse(ref)) {
+        IconRef.Auto -> match(name)
+        is IconRef.BrandRef -> byId(parsed.id)
+        else -> null
+    }?.takeIf { hasIcon(it) }
+
+    /**
+     * Matches and draws these items' logos now (call off the main thread), at the avatar sizes ([dps]) a list shows
+     * them: matching a name and drawing an SVG logo take a few milliseconds each, and a page opening with a dozen new
+     * ones would otherwise stall on the main thread while it slides in.
+     */
+    fun warm(items: List<Pair<String?, String>>, density: Float, dps: List<Int>) {
+        for ((ref, name) in items) {
+            val brand = brandFor(ref, name) ?: continue
+            val svg = icon(brand) as? BrandIcon.Svg ?: continue
+            // the share of the circle the logo fills, as BrandAvatar draws it
+            val share = if (svg.mono) 0.6f else 0.62f
+            for (dp in dps) svgBitmap(brand, svg.svg, (dp * share * density).roundToInt())
+        }
+    }
+
+    /** Reads the catalog now (call off the main thread), so the first screen that needs it doesn't wait. */
+    fun preload() {
+        matcher
+        iconEntries
+    }
+
+    private val icons = ConcurrentHashMap<String, Optional<BrandIcon>>()
+    /**
+     * Rendered logos, capped at ~12 MB: the icon picker can show hundreds of them, and an
+     * unbounded cache would keep every one in memory for as long as the app runs.
+     */
+    private val bitmaps = object : android.util.LruCache<String, ImageBitmap>(12 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
+    }
+
+    /** Frees the rendered logos (e.g. when Android asks the app to use less memory). */
+    fun trimMemory() = bitmaps.evictAll()
+
+    val all: List<Brand> get() = matcher.brands
+
+    /** Only brands that have a real logo — what the icon picker offers (no letter placeholders). */
+    val withIcons: List<Brand> by lazy { matcher.brands.filter(::hasIcon).sortedBy { it.name.lowercase() } }
+
+    /** Best payment brand for a typed name ("chase sapphire" → Chase), payment brands only. */
+    fun matchPayment(name: String): Brand? = match(name)?.takeIf { it.payment }
+
+    /** Logos with their name and aliases normalized once, for the logo search. */
+    private val searchIndex: List<Pair<Brand, List<String>>> by lazy {
+        withIcons.map { b -> b to (listOf(b.name) + b.aliases).map(BrandMatcher::normalize) }
+    }
+
+    /** Logos whose name or an alias contains [query] (normalized like brand matching). */
+    fun search(query: String): List<Brand> {
+        val q = BrandMatcher.normalize(query)
+        if (q.isEmpty()) return withIcons
+        return searchIndex.filter { (_, names) -> names.any { it.contains(q) } }.map { it.first }
+    }
+
+    fun byId(id: String): Brand? = matcher.byId[id]
+
+    fun match(name: String): Brand? =
+        matchCache.getOrPut(name) { Optional.ofNullable(matcher.match(name)) }.orElse(null)
+
+    /** Resolves the brand behind an item's icon setting (see [IconRef]); null for text/picture/none. */
+    fun resolve(brandKey: String?, name: String): Brand? = when (val ref = IconRef.parse(brandKey)) {
+        IconRef.Auto -> match(name)
+        is IconRef.BrandRef -> matcher.byId[ref.id] ?: match(name)
+        else -> null
+    }
+
+    // Merchant names repeat a lot (every Starbucks visit), so cache the result per name.
+    private val matchCache = ConcurrentHashMap<String, Optional<Brand>>()
+
+    fun hasIcon(brand: Brand): Boolean = iconEntries.containsKey(brand.id)
+
+    /** Kept for the Settings "about" count. */
+    fun hasGlyph(brand: Brand): Boolean = hasIcon(brand)
+
+    fun icon(brand: Brand): BrandIcon? = icons.getOrPut(brand.id) {
+        val entry = iconEntries[brand.id]
+        val icon: BrandIcon? = when {
+            entry != null && entry.first.startsWith("p") -> BrandIcon.Glyph(vector(brand.id, entry.first.substring(1)))
+            entry != null -> BrandIcon.Svg(entry.first.substring(1), entry.second == true)
+            else -> null
+        }
+        Optional.ofNullable(icon)
+    }.orElse(null)
+
+    /**
+     * Outline-style logos (e.g. Arcticons) use hairline strokes that look faint at avatar size;
+     * thicken them. Also drops fixed width/height so the logo scales to fill its circle.
+     */
+    private fun prepareSvg(svg: String): String {
+        var out = svg.replace(Regex("""(<svg[^>]*?)\s(width|height)="[^"]*"""")) { it.groupValues[1] }
+            .replace(Regex("""(<svg[^>]*?)\s(width|height)="[^"]*"""")) { it.groupValues[1] }
+        val outline = out.contains("fill=\"none\"") && out.contains("stroke=")
+        if (outline && !out.contains("stroke-width")) {
+            val open = out.indexOf('>') + 1
+            out = out.substring(0, open) + "<g stroke-width=\"2.6\">" + out.substring(open).replace("</svg>", "</g></svg>")
+        }
+        return out
+    }
+
+    private fun vector(name: String, d: String): ImageVector = ImageVector.Builder(
+        name = name,
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f,
+    ).addPath(
+        pathData = PathParser().parsePathString(d).toNodes(),
+        fill = SolidColor(Color.Black),
+    ).build()
+
+    /** Renders an SVG logo to a bitmap once (per brand & size) and caches it. */
+    fun svgBitmap(brand: Brand, svg: String, px: Int): ImageBitmap? {
+        val size = px.coerceIn(24, 256)
+        val key = brand.id + "@" + size
+        bitmaps.get(key)?.let { return it }
+        val bmp = runCatching {
+            val doc = SVG.getFromString(prepareSvg(svg))
+            // Without this, AndroidSVG draws at the file's own width/height (often 16–48 px) in the
+            // top-left corner instead of scaling the artwork to fill the bitmap.
+            doc.setDocumentWidth("100%")
+            doc.setDocumentHeight("100%")
+            doc.documentPreserveAspectRatio = PreserveAspectRatio.LETTERBOX
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            doc.renderToCanvas(Canvas(bitmap), RenderOptions.create().viewPort(0f, 0f, size.toFloat(), size.toFloat()))
+            bitmap.asImageBitmap()
+        }.getOrNull() ?: return null
+        bitmaps.put(key, bmp)
+        return bmp
+    }
+
+    private fun parseColor(hex: String): Long =
+        runCatching { 0xFF000000 or hex.removePrefix("#").toLong(16) }.getOrDefault(0xFF757575)
+}

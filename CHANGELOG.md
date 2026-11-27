@@ -1,8 +1,23 @@
 # Changelog
 
-All notable changes to Budgey. Versions follow [semantic versioning](https://semver.org); the 0.x series
+All notable changes to mi. Budget (called Budgey before 0.2.0). Versions follow [semantic versioning](https://semver.org); the 0.x series
 is early and may still change how things work. Full release notes for each version live in
 [docs/releases/](docs/releases/).
+
+## [0.2.0] — 2026-11-23
+
+Budgey becomes **mi. Budget** ([release notes](docs/releases/v0.2.0.md)).
+
+- **mi. design**: one main bar at the bottom (+ asks Scan or Add Manually; swipe right for the Library, left for
+  Settings, up for the Calendar, each following the finger; hold to search), full-page sheets, mi. theme, accents,
+  icon and wording.
+- **Refunds**: full or partial; refunded purchases stay in history but don't count toward budgets.
+- **Recently Deleted** (30 days), swipe rows (refund / delete with Undo), This Month widget, Hide From
+  Screenshots, in-app updates and What's New, gesture walkthrough.
+- **Charts**: minimum segment size on donut and pie, "Other" for the smallest, rings show share of all spending.
+- Settings to the mi. standard (sections, words and order), saved as JSON; new Look & Feel, Pill, Start Screen and
+  Gestures settings; Material Symbols Rounded only; mi. dialogs, menus, fields and bottom panels.
+- New package (`com.jlees.mibudget`), database v7 (no older versions to migrate).
 
 ## [0.1.1] — 2026-10-05
 

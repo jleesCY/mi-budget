@@ -1,9 +1,9 @@
-# Budgey — developer guide
+# mi. Budget — developer guide
 
 > The user-facing overview is in the main [README](../README.md). This page is for building and working on the code.
 
-Budgey is a friendly little money bird: an offline budget tracker built with Kotlin, Jetpack Compose, and Material 3 Expressive.
-Nothing goes to a bank or a server. The only network use is downloading an optional AI scanner model you pick in Settings → Scanner, and the optional daily currency-rate updates you can add in Settings → Tools (no personal data is sent; ML Kit's usage reporting is switched off).
+mi. Budget is an offline budget tracker in the mi. family, built with Kotlin, Jetpack Compose, and Material 3 Expressive.
+Nothing goes to a bank or a server. The only network use is update checks and the optional daily currency-rate updates you can add in Settings → Tools (no personal data is sent; ML Kit's usage reporting is switched off).
 
 ## Getting started
 
@@ -21,26 +21,18 @@ Nothing goes to a bank or a server. The only network use is downloading an optio
    sets, and writes `assets/brand_icons.json`. Brands it can't find are listed in
    `app/brand_icons_missing.txt`. To pin one by hand, add `"icon": "prefix:name"` (any id from
    icon-sets.iconify.design) to the brand. Brands without a logo show their category icon, never a letter.
-   Similarly, `./gradlew :app:fetchFonts` bundles the **Google Sans Flex** font (Settings → Appearance → Font).
+   The **Google Sans Flex** font is committed in `app/src/main/assets/fonts` (SIL OFL).
    Without it, the app uses the system font.
-3. Run on your phone (minSdk 31 / Android 12+).
+3. Run on your phone (minSdk 26 / Android 8.0+; Adaptive colours and the widget's wallpaper colours need 12+, and fall back below it).
 4. Unit tests: `./gradlew :app:testDebugUnitTest`. They cover the receipt parser, brand matching,
    filters, budget roll-ups and billing math.
 
-5. *(Optional)* **AI scanners** — Settings → Scanner. Standard (built in) is the default. You can add:
-   - **Gemini Nano** — Google's on-device AI, built into Android on supported phones. Budgey detects support
-     automatically and only lists it where it works; if Android still has to fetch it, selecting it starts that.
-   - **Vision AI** (Gemma 4 E2B, 2.59 GB) — looks at the original photo; needs 8 GB RAM.
-   - After a Standard scan, the review screen offers **Rescan** (Gemini Nano if the phone has it, else
-     Standard again) and **Advanced rescan** (Vision AI; if it isn't downloaded, it links to Scanner & AI
-     models, and Back returns to the scan).
-   - AI models only ever see the untouched photo. Budgey cleans up leftover/partial model files and
-     their caches on launch, frees model memory when the app is backgrounded, and deletes a model's
-     cache along with the model.
-
-   Models download inside the app (Wi-Fi only by default, in the background, resumable) and can be deleted
-   from the same screen. For development you can also run `./gradlew :app:fetchScanModel` /
-   `:app:pushScanModel`, or import a `.litertlm` file.
+5. *(Optional)* **Gemini Nano** — Settings → Scanner. Standard (Google's ML Kit, built in) is the default.
+   Gemini Nano is Google's on-device AI, built into Android on supported phones: mi. Budget detects support
+   automatically and only lists it where it works; if Android still has to fetch it, selecting it starts that.
+   - The review screen offers **Rescan** (ML Kit reads the photo again) and, on phones with Gemini Nano,
+     **Advanced Rescan** (Gemini Nano reads it). The check splitter offers the same two.
+   - Gemini Nano only ever sees the untouched photo.
 
 > If `./gradlew` says "permission denied", run `chmod +x gradlew` once.
 
@@ -48,17 +40,19 @@ Nothing goes to a bank or a server. The only network use is downloading an optio
 
 | Area | Features |
 |---|---|
-| **Navigation** | Four tabs (Purchases, Subscriptions, Budgets & Categories, Calendar) plus a ☰ menu with **Settings** and **Tools**. Every add button is the same round **+** FAB (screen readers hear "Add purchase", "Add budget"…); on Purchases and Subscriptions it fans out Scan / Enter manually and turns into an ×. Unfinished new items (scan review or editor, as soon as any field differs from a blank form) are kept and offered as a separate **⟲ Resume** button just right of the + (4 dp gap; round outer ends, softer facing corners, so the pair reads as a pill) (`ui/components/AddFabMenu.kt`, `data/PendingAdds.kt`). **Purchases and subscriptions are separate flows:** there's no Purchase ⇄ Subscription switch in the editors, and scans started from a tab are that tab's kind (only an image shared in from another app asks "What is this?"). New items are added with the button at the bottom of the form (no Save in the top bar). Tapping a purchase or subscription opens a **read-only preview** first; the ✎ button switches to editing (Back leaves editing without saving). |
-| **Tools** | **Check splitter**: scan a receipt or kiosk screen to pull in every item (uses your AI scanner when one is set up, otherwise the text reader), add people, and split **evenly**, by **custom** amounts or percentages, or **by item** (tap who had each item; shared items split evenly). Each person has a **Tip** switch, so the tip is split only between the people who chip in; by item, tax & fees follow what each person ordered and the tip can too. Rows with a count ("5 Burgers $50", "5x", "x5", "(5)", "5 @ 10.00", a QTY column; sizes like "12 oz" are not counts) are split into one item per unit (up to 20; leftover cents go to the first units) — `ReceiptItems.quantityOf` / `splitUnits`. The AI prompt asks for qty explicitly, a count left in the name is picked up, and unit prices are corrected when that makes the items match the subtotal. Every share is rounded **up** to the cent, and the extra is shown. Share the result as text. After a scan there's a photo preview (tap for full screen), **Rescan** (Gemini Nano if available, else Standard) and **Advanced Rescan** (Vision AI; links to Scanner & AI models if it isn't downloaded). Progress is saved as you go: leave and come back to **Continue** or **Start fresh**. New people start with an empty name (shown as "Person 2" etc. in results). **Tip calculator**: bill before tax, a 1–50% slider (20% default, shortcuts 10/15/18/20/22/25), and linked **percent** and **dollar** boxes — type either and the other follows; *Tip after tax* (off by default) adds a tax box and tips on bill + tax. Tips round up to the cent. **Currency converter** that works fully offline: ~160 currencies of central-bank rates are **built in** (refresh them before a release with `./gradlew :app:fetchFxRates`), and by default the converter never goes online. Settings → Tools has an optional **Daily rate updates** pack (download icon, ~10 KB; delete icon once installed) that keeps the rates current, updating once a day when online. Amounts show without currency prefixes. |
+| **Navigation** | The start screen (this month's chart and purchases) and the **main bar** (`ui/common/MainBar.kt`, rules in `MainBarRules`): Library edge button · calendar · **+** (add purchase) · ⋮ (the item menu, `ItemMenu.kt`) · Settings edge button. Swiping the bar's Pill right/left/up brings in the Library, Settings or Calendar as sheets that follow the finger (`SheetHost.kt`: `BarSheets`, `BarSheetHost`), and each sheet's search Pill morphs out of the bar's Pill (`SheetMorph`, `morphToward`) and back. Holding the Pill searches; the month changes by swiping the title or chart. Other pages are mi. sheets (`MiScaffold`) with a search Pill and add FABs (`SheetFabs`). |
+| **Tools** | **Check splitter**: scan a receipt or kiosk screen to pull in every item (uses Gemini Nano when it's your scanner and the phone has it, otherwise the text reader), add people, and split **evenly**, by **custom** amounts or percentages, or **by item** (tap who had each item; shared items split evenly). Each person has a **Tip** switch, so the tip is split only between the people who chip in; by item, tax & fees follow what each person ordered and the tip can too. Rows with a count ("5 Burgers $50", "5x", "x5", "(5)", "5 @ 10.00", a QTY column; sizes like "12 oz" are not counts) are split into one item per unit (up to 20; leftover cents go to the first units) — `ReceiptItems.quantityOf` / `splitUnits`. The AI prompt asks for qty explicitly, a count left in the name is picked up, and unit prices are corrected when that makes the items match the subtotal. Every share is rounded **up** to the cent, and the extra is shown. Share the result as text. After a scan there's a photo preview (tap for full screen), **Rescan** (ML Kit reads it again) and, on phones with Gemini Nano, **Advanced Rescan** (Gemini Nano reads it). Progress is saved as you go: leave and come back to **Continue** or **Start fresh**. New people start with an empty name (shown as "Person 2" etc. in results). **Tip calculator**: bill before tax, a 1–50% slider (20% default, shortcuts 10/15/18/20/22/25), and linked **percent** and **dollar** boxes — type either and the other follows; *Tip after tax* (off by default) adds a tax box and tips on bill + tax. Tips round up to the cent. **Currency converter** that works fully offline: ~160 currencies of central-bank rates are **built in** (refresh them before a release with `./gradlew :app:fetchFxRates`), and by default the converter never goes online. Settings → Tools has an optional **Daily rate updates** pack (download icon, ~10 KB; delete icon once installed) that keeps the rates current, updating once a day when online. Amounts show without currency prefixes. |
 | **Purchases** (start screen) | A large centered chart at the top (5 styles: donut, pie, bars, cumulative trend, rings), with the total spent right under it. For the plain "this month" view it also shows the change vs. the same point last month and how much of your budgets is left (plus a safe daily amount). The chart style button sits on the chart, and the choice applies app-wide and is remembered. Tap a slice to drill into that category, ↑ to go back up. On the donut, pie and rings, **touch & hold** previews a category (donut: in the hole; pie/rings: a floating card; the slice pops out / others fade, and its legend chip lights up); keep holding and slide around the circle (rings: in and out) to preview others. Haptics: a firm tap (`VIRTUAL_KEY`) when picked up, a light tick (`SEGMENT_TICK`, `CLOCK_TICK` before Android 14) on every change. A drag that starts before the hold still scrolls the screen (`slicePicker` in `ui/components/Charts.kt`). Below that: quick date/category filter chips, nudges for free trials and uncategorized purchases, and fixed-size shortcut cards for **Upcoming renewals**, **Budgets** and **Last 7 days** (they open those tabs). Then the date-grouped list with daily totals. Search plus advanced filters: date presets or a custom range, categories (with or without sub-categories), uncategorized only, min/max amount, expenses/refunds, source (manual/scanned/subscription/imported), payment method, has receipt, and sort. Long-press for multi-select, then bulk-categorize or delete (with undo). |
 | **Calendar** | A month grid you can swipe or step through with arrows, plus a Today button. Days are shaded by how much you spent, with the day number top-left, a small purchase-count badge top-right (capped at 99+), a soft ↻ mark under it on renewal days (upcoming or logged), and the day's total at the bottom. Tap a day to see its purchases and renewals, or add a purchase on that date. Day purchases use the same row as the Purchases list (`ui/purchases/PurchaseListItem.kt`). |
-| **Add / edit purchase** | A **Purchase / Subscription** switch at the top of every new item flips between the two editors and keeps everything typed so far, in both directions. Live auto-icon from the merchant name; tap the icon to pick **Auto**, any of ~950 logos (each has a name and default category, so picking one also fills those in), **custom text** (up to 3 letters on a color), a **photo** (camera or gallery), or the **category** icon. Category suggestion (what you used last time for that merchant, otherwise the brand's default category). Merchant autocomplete, payment-method chips, refund toggle, receipt image, notes. Asks before saving a purchase without a category. |
-| **Scanning** | One **Scan** button opens Android's chooser (camera, Photos, Files…), or use *Share → Budgey* from any app. OCR runs on-device with ML Kit's bundled model, on the full-resolution original. The parser knows three kinds of picture: **receipts**, **banking-app screenshots** (uses text size to find the headline amount and merchant, ignores the bank's own name, balances, rewards and "card ending" lines, reads "-$6.45" as a charge, cleans "SQ *", "TST*" etc.), and **fuel pumps / kiosk screens** (SALE / Total Sale, ignores gallons and price-per-gallon, restores a missing decimal point and cross-checks gallons × price). It pulls out the merchant, total, and date, and decides whether it's a **purchase or a subscription** (billing cycle, next billing date, trial end). Then a review screen opens the right editor pre-filled, and the image is attached. Attached images are downscaled to 1600 px and saved as WebP (about 100–250 KB instead of 3–5 MB). **$0 receipts:** a 0.00 counts only on a *Total* line (not subtotal/balance/change) of a receipt that shows a discount, coupon, comp, "free" or a negative amount; then it beats the AI's answer (small models tend to return the item price). The AI prompt says totals are after discounts and can be 0. $0 purchases can be saved. |
-| **Categories / Budgets** | Categories are nested folders, as deep as you like. A folder view shows breadcrumbs, spending, budget progress (wavy expressive bar), sub-folders, subscriptions and recent purchases. Any category can have a weekly, monthly, quarterly or yearly budget, and a parent's budget includes all of its children. The Budgets view (shown first) lists every budget with "ahead of pace" and "over" states. Comes with 19 default categories (55 counting sub-categories), and "Add from defaults" re-adds any you deleted. Deleting a folder moves its contents up a level, so nothing is lost. |
+| **Add / edit purchase** | Live auto-icon from the merchant name; tap the icon to pick **Auto**, any of ~950 logos (each has a name and default category, so picking one also fills those in), **custom text** (up to 3 letters on a color), a **photo** (camera or gallery), or the **category** icon. Category suggestion (what you used last time for that merchant, otherwise the brand's default category). Merchant autocomplete, payment-method chips, refund toggle, receipt image, notes. Asks before saving a purchase without a category. |
+| **Scanning** | One **Scan** button opens Android's chooser (camera, Photos, Files…), or use *Share → mi. Budget* from any app. OCR runs on-device with ML Kit's bundled model, on the full-resolution original. The parser knows three kinds of picture: **receipts**, **banking-app screenshots** (uses text size to find the headline amount and merchant, ignores the bank's own name, balances, rewards and "card ending" lines, reads "-$6.45" as a charge, cleans "SQ *", "TST*" etc.), and **fuel pumps / kiosk screens** (SALE / Total Sale, ignores gallons and price-per-gallon, restores a missing decimal point and cross-checks gallons × price). It pulls out the merchant, total, and date, and decides whether it's a **purchase or a subscription** (billing cycle, next billing date, trial end). Then a review screen opens the right editor pre-filled, and the image is attached. Attached images are downscaled to 1600 px and saved as WebP (about 100–250 KB instead of 3–5 MB). **$0 receipts:** a 0.00 counts only on a *Total* line (not subtotal/balance/change) of a receipt that shows a discount, coupon, comp, "free" or a negative amount; then it beats the AI's answer (small models tend to return the item price). The AI prompt says totals are after discounts and can be 0. $0 purchases can be saved. |
+| **Categories / Budgets** | Categories are nested folders, as deep as you like. A folder view shows breadcrumbs, spending, budget progress (a flat 4dp bar), sub-folders, subscriptions and recent purchases. Any category can have a weekly, monthly, quarterly or yearly budget, and a parent's budget includes all of its children. The Budgets view (shown first) lists every budget with "ahead of pace" and "over" states. Comes with 19 default categories (55 counting sub-categories), and "Add from defaults" re-adds any you deleted. Deleting a folder moves its contents up a level, so nothing is lost. |
 | **Subscriptions** | Monthly and yearly totals, a "Coming up" row of fixed-size cards (logo, name, price per cycle, "renews in N days", date and category), a free-trial warning, and Active/Paused/Cancelled/All tabs. Cycles can be weekly through yearly or a custom "every N days/weeks/months/years". **Auto-log** (a switch on each subscription) turns each billing date into a purchase so budgets stay accurate (it backfills only from the next due date, never years of history). Each subscription shows its payment history and has a "Log payment" button. **Pause / cancel / resume without touching the past**: stopping records a "stopped on" date, and *Resume on a date…* turns the earlier run into a price-history period, then restarts billing on the chosen date in the same subscription. **Price history**: add earlier periods with their own dates, price and cycle (e.g. a student plan), and past payments are logged at those prices. Choosing *Only future* after a price change also keeps the old price as a history period. **Price = base + fees & taxes = total charged.** Editing the base or the fees recalculates the total; editing the total recalculates the fees. The base price is never overwritten, and the total is what gets logged. **The next payment is calculated automatically** from the start date and cycle (e.g. started Feb 20, monthly → Oct 20). Turn the switch off to set it by hand. **Past payments are backfilled.** A start date in the past logs a purchase for every billing date since then (skipping free-trial dates), and the calendar marks each one. **Editing a subscription syncs its history.** Changes to price, name, category, payment method, icon or schedule are offered for the already-logged auto payments, behind an "Update past payments?" prompt. Choosing *Only future* leaves the past untouched. Payments logged by hand are never changed. **Renewal reminders** are local notifications, checked daily around 9 AM. The lead time is set in Settings (on the day / 1 / 2 / 3 / 7 days before), and each subscription can override it or turn it off. Free trials get at least 2 days' warning. **Free trials:** nothing is billed, shown or auto-logged during a trial. Paid billing starts on the trial's end date and the rhythm counts from there (start Sep 1 + trial to Dec 1 → Dec 1, Jan 1, …), via `Renewals.paidFrom` / `nextPaidDate` (a trial with no end date is never billed; a *future* trial date left on an Active subscription is ignored, and switching a trial to Active before its end clears it). A trial that reaches its end date stays marked as a trial (no silent conversion) so it gets flagged: a **TRIAL_ENDED** notification (once, for trials that ended in the last 30 days), a red card per subscription on the Subscriptions page with **Keep it** (→ Active, end date kept so history knows the trial was free) and **Cancel it…** (opens the editor), "Trial ended … · now paid" in the list, and a nudge on Purchases. Earlier price-history periods are never treated as trial time. |
 | **Payment methods** | Saved in Settings → Payments: name, optional last 4 digits, and an icon. Icons use the same picker as purchases: a bank/card/wallet logo (84 of them, listed first), any other logo, a symbol (cash, debit, gift card…), custom text, or your own photo. The icon is auto-picked from the name. Purchases and subscriptions pick from the list (with an "Add payment method" shortcut), so names are never mistyped. New purchases default to the method you last used at that merchant. Purchases can be filtered by method, and each method shows its usage. Old typed names were converted automatically. |
-| **Settings** (☰ → Settings) | **Animations** switch (on by default; off makes every transition instant). Notifications (reminders on/off, lead time, send a test reminder). Font (system or Google Sans Flex, regular or rounded, bundled for offline use), text size (Small → Extra large, applied on top of the phone setting). Theme (system/light/dark), budgie-colored accent swatches or Material You, pure-black AMOLED mode, week start, uncategorized reminder. **Shrink saved pictures** re-compresses images from older versions. **Export everything** to a `.zip`. **Selective import**: tick categories in a tree (their purchases, subscriptions and budgets come with them), choose where they go, merge categories with the same name, skip lookalike duplicates, and pick a conflict rule (keep mine / replace / keep both). **Erase all data** takes three deliberate steps (see what will be lost + "Export first", tick "I understand", type ERASE and wait out a 5-second countdown), and even then a safety copy stays on the phone for 7 days (*Restore erased data*). |
-| **Budgey look** | Budgie-green default theme with a sunny-yellow accent, swatches named after budgie color varieties, a budgie-hugging-a-coin app icon (with a themed-icon version), and the little bird perched on empty states and the Purchases title. |
+| **Settings** (⚙ on the start screen) | Budget (Budgeting, Notifications, Scanner, Tools), Appearance (Look & Feel, Pill, Start Screen), Navigation (Gestures), Saved (Recently Deleted), Protection (Privacy & Security), General (Backup & Reset, About). |
+| **Settings** | One `@Serializable` `AppSettings` (`data/Settings.kt`) saved as JSON by `SettingsRepository`, with `Choice` enums (saved by `@SerialName`), `sanitized()`, `migrated()` (bump `SETTINGS_VERSION`, add a test), `forBackup()` / `restoredFrom()`. One file per section in `ui/settings/` (`LookAndFeelSettings.kt`…) built from `SettingsKit.kt`; `searchSettings()` is pure and tested. |
+| **Icons** | Material Symbols Rounded only: `ui/common/Symbols.kt` (`Sym.Delete`…) holds each symbol's path data, generated from google/material-design-icons. Add a symbol by fetching `symbols/web/<name>/materialsymbolsrounded/<name>_24px.svg`. |
+| **mi. look** | Follows the mi. brand: one Pill (`ui/common/Pill.kt`) instead of a bottom bar and FABs, full-page sheets (`ui/common/Sheet.kt` `MiScaffold`), notices with Undo (`ui/common/Notices.kt`), mi. Motion and haptics (`ui/common/Motion.kt`), a seed-generated colour scheme (materialkolor) with mi.'s seven accents or Adaptive, Pure Black, Corners, and the "You are here" icon: a green wallet whose snap is mi.'s dot. |
 
 ## Making a release
 
@@ -66,13 +60,13 @@ Nothing goes to a bank or a server. The only network use is downloading an optio
    `appVersionCode` (+1 every release — Android won't install an APK over one with the same or a higher code).
 2. **One-time: create a release key** and keep it safe (back it up — losing it means people can't update):
    ```
-   keytool -genkeypair -v -keystore ~/budgey-release.jks -alias budgey -keyalg RSA -keysize 4096 -validity 10000
+   keytool -genkeypair -v -keystore ~/mi-budget-release.jks -alias mibudget -keyalg RSA -keysize 4096 -validity 10000
    ```
    Then create `keystore.properties` in the project root (git-ignored):
    ```
-   storeFile=/Users/you/budgey-release.jks
+   storeFile=/Users/you/mi-budget-release.jks
    storePassword=…
-   keyAlias=budgey
+   keyAlias=mibudget
    keyPassword=…
    ```
    Without it, release builds are signed with the computer's debug key (fine for testing, not for publishing —
@@ -80,13 +74,14 @@ Nothing goes to a bank or a server. The only network use is downloading an optio
 3. **Fetch the bundled data, then build** (from the project root):
    ```
    ./gradlew clean
-   ./gradlew :app:fetchBrandIcons -Prefresh :app:fetchFonts :app:fetchFxRates
+   ./gradlew :app:fetchBrandIcons -Prefresh :app:fetchFxRates
    ./gradlew clean :app:assembleRelease :app:testDebugUnitTest
    ```
-4. The APK is **`app/build/outputs/apk/release/Budgey-<version>-release.apk`** — named from `appVersionName`
+4. The APK is **`app/build/outputs/apk/release/mi-budget-<version>-release.apk`** — named from `appVersionName`
    via `base.archivesName` in `app/build.gradle.kts`.
-5. **Publish**: commit, tag (`git tag v0.1.0 && git push --tags`), then on GitHub → Releases → *Draft a new
-   release* → pick the tag, paste the notes from `docs/releases/`, and attach the APK. Add the release to
+5. **Publish**: commit, tag (`git tag v0.1.1 && git push --tags`), then on GitHub → Releases → *Draft a new
+   release* → pick the tag, paste the notes from `docs/releases/`, and attach the APK. Links in those notes must be full URLs
+   (`https://github.com/mi-app-hub/mi-budget/blob/master/…`): relative links break on the Releases list page. Add the release to
    [CHANGELOG.md](../CHANGELOG.md).
 
 ## Architecture & key decisions (and why)
@@ -121,12 +116,12 @@ Nothing goes to a bank or a server. The only network use is downloading an optio
 ## Project layout
 
 ```
-app/src/main/java/com/jlees/budgey/
+app/src/main/java/com/jlees/mibudget/
   data/        Room entities & DAOs, repository, settings (DataStore), receipts, defaults, backup/
   domain/      Money, periods & billing cycles, category tree, filters, budget math (pure Kotlin)
   icons/       Brand catalog + matcher
   scan/        OCR engine (ML Kit), receipt parser, scan draft hand-off
-  reminders/   Renewal reminder worker (WorkManager) + notifications
+  reminders/   Renewal reminder job (JobScheduler) + notifications
   ui/          theme/, components/ (charts, avatars, pickers…), navigation/, and one package per section (home, calendar, …)
 app/src/main/assets/brands.json   ← add merchants here
 ```
@@ -149,12 +144,12 @@ Every file the app writes has one owner, and is deleted as soon as its owner is 
 | Receipt photos | `filesDir/receipts` | Owned by the saved purchase/subscription, the editor session (`data/ReceiptSession.kt`) or an unfinished add (`PendingAdds`). Replacing or removing a photo in the editor deletes the session's copy right away; leaving without saving deletes photos attached during that visit; saving deletes the replaced photo; deleting an item deletes its photo unless another row uses it; bulk-deleted purchases free theirs when the Undo snackbar goes away; Discard on a scan or new item deletes its photo. |
 | Icon pictures | `filesDir/icons` | Swept at launch when no purchase, subscription, payment method, category or unfinished add uses them. |
 | Camera captures | `cacheDir/camera` | Deleted once copied (scan review, check splitter, editor) or when you pick from Photos instead (`data/TempFiles.kt`). |
-| AI model input | `cacheDir/scan` | Unique name per scan; deleted in `finally` (also on failure or leaving mid-scan). |
+| Gemini Nano input | `cacheDir/scan` | Unique name per scan; deleted in `finally` (also on failure or leaving mid-scan). |
 | Unpacked backup | `cacheDir/import` | Streamed (never read whole into memory); deleted after a successful import, when leaving the import screen, and after the safety restore. |
 | Check-split photo | `filesDir/tools` | One kept; others deleted when the screen closes. |
 | Erase safety copy | `filesDir/safety` | Kept 7 days after "Erase all data" (pruned at every launch) or until "Delete safety copy now"; never included in phone-to-phone transfers (`res/xml/data_extraction_rules.xml`). |
 
-**Launch sweep** (`BudgeyApp.cleanupStorage`) catches leftovers from crashes or force-stops, but only touches files older than
+**Launch sweep** (`MiApp.cleanupStorage`) catches leftovers from crashes or force-stops, but only touches files older than
 the app's launch, so something you're adding in the first seconds is never swept. Bitmaps are recycled in `finally` blocks
 (OCR passes, model input, Gemini Nano, re-compress), and rendered brand logos live in a 12 MB LRU cache that's cleared when
 Android asks the app to trim memory.
@@ -165,18 +160,20 @@ Agreed in the October 2026 consistency pass; new screens should follow them.
 
 - **Top bars**: a plain `TopAppBar` everywhere (no large/centered variants). Back is the
   `AutoMirrored.Rounded.ArrowBack` icon labelled "Back". Tab roots have no back button.
-- **Feedback**: a snackbar for results ("Exported 120 records", "Deleted 3 purchases · Undo"). The
-  only exception is inside a bottom sheet, where a snackbar would sit behind the sheet — use a Toast
-  there. View models send messages through a `Channel` (not a `SharedFlow`) so none are lost.
-- **Confirmations**: `ConfirmDialog` — a question as the title ("Delete the safety copy?"), one
-  sentence on the consequence, the action's verb on the confirm button ("Delete", "Start over",
+- **Feedback**: mi.'s notice pill (`Notices.show` / `Notices.undo` in `ui/common/Notices.kt`), never a snackbar
+  or Toast. Short and past tense ("Exported 120 records", "Deleted Starbucks · Undo"); a ✓ (`done = true`) only for
+  good news that finished at once; never a raw error message. Deleting (a purchase, subscription, category or payment method) and refunding happen at once, with Undo, never a question first; deleted purchases and subscriptions wait in Recently Deleted too.
+  View models send messages through a `Channel` (not a `SharedFlow`) so none are lost.
+- **Confirmations**: `ConfirmDialog`, only for what Undo can't bring back (Empty Recently Deleted, Wipe All Data,
+  Reset All Settings, discarding an unsaved new purchase) — a question naming the action as the title ("Delete the
+  Safety Copy?"), one sentence on the consequence, the action's verb on the confirm button ("Delete", "Start over",
   never "OK"/"Yes"), red when it destroys something, and "Cancel". Information-only dialogs close
   with "Close" (or "Done" after finishing a task).
 - **What a scan read**: always `ScanTextDialog` (selectable, one section per reader).
 - **Empty / missing**: `EmptyState` (icon, short title, one-line body, at most one button); a screen
   opened for something that no longer exists shows `ItemNotFound`.
 - **Loading**: `LoadingIndicator` for a screen or panel; a 24 dp `CircularProgressIndicator` inside a
-  row or button; `LinearProgressIndicator` / the wavy bar only for real progress (downloads, budgets).
+  row or button; `ProgressBar` (ui/components/BudgetProgress.kt: flat, 4dp, no animation) for real progress (downloads, budgets).
 - **Dates**: `MediumDate` in fields and rows ("Oct 3, 2026"); `dayLabel()` for day headings
   ("Today", "Yesterday", "Friday, October 3", with the year when it isn't this year); "MMMM yyyy"
   for month titles.

@@ -1,0 +1,4 @@
+<resources>
+    <!-- debug builds install beside the release as their own app; "mi. Budget dev", never just "mi. dev": several mi. apps sit side by side -->
+    <string name="app_name">mi. Budget dev</string>
+</resources>

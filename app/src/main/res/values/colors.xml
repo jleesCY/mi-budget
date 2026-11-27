@@ -1,5 +1,10 @@
 <resources>
-    <color name="splash_bg">#FFFBF2</color>
-    <!-- Soft sky blue behind the budgie in the launcher icon. -->
-    <color name="ic_launcher_background">#CFEFFF</color>
+    <!-- every mi. app icon (and its splash screen) sits on this near-black -->
+    <color name="icon_background">#0D0D0F</color>
+    <!-- the widget: fixed Material tones before Android 12 (values-v31 takes the wallpaper's colours) -->
+    <color name="widget_surface">#FFEFF1EC</color>
+    <color name="widget_text">#FF191C19</color>
+    <color name="widget_subtext">#FF424941</color>
+    <color name="widget_accent">#FF1B6D2F</color>
+    <color name="widget_ripple">#1F000000</color>
 </resources>

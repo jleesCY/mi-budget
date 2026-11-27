@@ -27,3 +27,9 @@ keystore.properties
 # Local working files
 /Claude outputs/
 /app/brand_icons_missing.txt
+
+# Docs site (Next.js)
+node_modules/
+docs/.next/
+docs/out/
+docs/tsconfig.tsbuildinfo

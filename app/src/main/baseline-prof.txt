@@ -1,0 +1,5 @@
+# mi. Budget's own code, compiled ahead of time once Android has applied this profile (a sideloaded APK otherwise
+# runs it interpreted at first, which makes the first swipe to a page, like Subscriptions, stutter after a launch).
+# The Compose and AndroidX libraries ship their own profiles; ProfileInstaller installs them all.
+HSPLcom/jlees/mibudget/**;->**(**)**
+Lcom/jlees/mibudget/**;

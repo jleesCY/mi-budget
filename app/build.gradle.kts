@@ -13,7 +13,6 @@ import java.util.concurrent.atomic.AtomicInteger
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
@@ -22,14 +21,14 @@ plugins {
 // ===== Release version: bump both for every release =====
 // versionName is what people see ("0.1.1") and names the APK. versionCode must go up by at least 1
 // every release, or Android won't install the new APK over the old one.
-val appVersionName = "0.1.1"
-val appVersionCode = 2
+val appVersionName = "0.2.0"
+val appVersionCode = 3
 
 // ===== Release signing =====
 // Put a keystore.properties file in the project root (it's git-ignored, never commit it) with:
-//   storeFile=/absolute/path/to/budgey-release.jks
+//   storeFile=/absolute/path/to/mi-budget-release.jks
 //   storePassword=…
-//   keyAlias=budgey
+//   keyAlias=mibudget
 //   keyPassword=…
 // Every release must be signed with the SAME key, or phones refuse to update. Without the file,
 // release builds fall back to this computer's debug key (fine for trying things out).
@@ -39,17 +38,16 @@ val keystoreProps = Properties().apply {
 }
 
 android {
-    namespace = "com.jlees.budgey"
-    compileSdk = 36
+    namespace = "com.jlees.mibudget"
+    compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.jlees.budgey"
-        // Android 12+: required by the on-device AI runtime (LiteRT-LM) used for smart scan.
-        minSdk = 31
+        applicationId = "com.jlees.mibudget"
+        // Android 8.0+, as every mi. app (newer features check the version: Adaptive colours on 12+, and so on)
+        minSdk = 26
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -70,6 +68,9 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Your release key from keystore.properties; this computer's debug key if there isn't one.
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            // 64-bit phones only: ML Kit ships native code, and 32-bit/x86 copies more than doubled
+            // the APK. 32-bit phones are old budget models; the emulator is arm64 too.
+            ndk { abiFilters += "arm64-v8a" }
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -79,23 +80,21 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    // The exported Room schemas (app/schemas) are what the migration tests start from.
-    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 
-    androidResources {
-        // The old glyph catalog (replaced by brand_icons.json; fetchBrandIcons deletes it) never ships,
-        // even if a stale copy is still in assets/.
-        ignoreAssetsPatterns += "!brand_glyphs.json"
-    }
     buildFeatures {
         compose = true
         buildConfig = true
     }
+    // Native code compressed in the APK (unpacked at install): roughly halves the download.
+    packaging { jniLibs { useLegacyPackaging = true } }
+    // mi. Budget is in English only: drop the libraries' own strings in other languages (AndroidX ships ~80), which
+    // otherwise sit in resources.arsc unused
+    androidResources { localeFilters += "en" }
 }
 
-// APKs are named after the release: Budgey-0.1.1-release.apk (and Budgey-0.1.1-debug.apk).
+// APKs are named after the release: mi-budget-0.2.0-release.apk (and mi-budget-0.2.0-debug.apk).
 base {
-    archivesName.set("Budgey-$appVersionName")
+    archivesName.set("mi-budget-$appVersionName")
 }
 
 kotlin {
@@ -125,38 +124,28 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material.icons.extended)
+    // The mi. colour scheme: a whole Material 3 scheme from one seed accent.
+    implementation(libs.materialkolor)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.mlkit.text.recognition)
     implementation(libs.coil.compose)
     // Renders the full-color / outline brand logos fetched from Iconify (SVG).
     implementation(libs.androidsvg)
-    // Smart scan: runs a Gemma vision model on the phone. The model file is NOT bundled (see fetchScanModel).
-    implementation(libs.litertlm.android)
     // Gemini Nano on phones that have it built in (Pixel 9+, Galaxy S26, OPPO Find X8/X9…).
     implementation(libs.genai.prompt)
-    implementation(libs.androidx.exifinterface)
-    implementation(libs.androidx.work.runtime)
     // Installs the baseline profiles that ship inside Compose/AndroidX — big startup & scroll win in release builds.
+    implementation(libs.androidx.exifinterface)
     implementation(libs.androidx.profileinstaller)
 
     testImplementation(libs.junit)
 
-    // Database migration tests (run on a phone/emulator: ./gradlew :app:connectedDebugAndroidTest).
-    androidTestImplementation(libs.androidx.room.testing)
-    androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.junit)
 }
 
 // ===== BEGIN brand icon fetcher (shared with build.gradle.kts) =====
@@ -176,7 +165,7 @@ class BrandIconFetcher(private val log: (String) -> Unit) {
         val c = URI(url).toURL().openConnection() as HttpURLConnection
         c.connectTimeout = 15_000
         c.readTimeout = 30_000
-        c.setRequestProperty("User-Agent", "Budgey-build/1.0 (brand icon fetch)")
+        c.setRequestProperty("User-Agent", "mi-budget-build/1.0 (brand icon fetch)")
         if (c.responseCode != 200) null else c.inputStream.bufferedReader().use { it.readText() }
     }.getOrNull()
 
@@ -363,11 +352,10 @@ class BrandIconFetcher(private val log: (String) -> Unit) {
  * The network is only used here, at build time on your computer — the app itself stays offline.
  */
 tasks.register("fetchBrandIcons") {
-    group = "budgey"
+    group = "mi budget"
     description = "Download brand logos (Simple Icons + Iconify) for the brand catalog into assets."
     val catalog = file("src/main/assets/brands.json")
     val out = file("src/main/assets/brand_icons.json")
-    val legacy = file("src/main/assets/brand_glyphs.json")
     val report = file("brand_icons_missing.txt")
     val refresh = project.hasProperty("refresh")
     doLast {
@@ -380,7 +368,6 @@ tasks.register("fetchBrandIcons") {
         val ids = brands.map { it["id"] as String }.toSet()
         val kept = icons.filterKeys { it in ids }
         out.writeText(JsonOutput.toJson(mapOf("version" to 1, "icons" to kept)))
-        if (legacy.exists()) legacy.delete()
         report.writeText(
             "Brands without a logo (they show their category icon instead):\n" + missing.joinToString("\n") + "\n"
         )
@@ -390,41 +377,12 @@ tasks.register("fetchBrandIcons") {
 }
 
 /**
- * Downloads Google Sans Flex (SIL Open Font License) from the google/fonts GitHub repo into
- * src/main/assets/fonts/ so it ships inside the APK and works offline.
- *
- * Run once:  ./gradlew :app:fetchFonts
- * Manual alternative: download the variable .ttf from https://fonts.google.com/specimen/Google+Sans+Flex
- * and save it as app/src/main/assets/fonts/GoogleSansFlex.ttf
- */
-tasks.register("fetchFonts") {
-    group = "budgey"
-    description = "Fetch the Google Sans Flex variable font into assets."
-    val outDir = file("src/main/assets/fonts")
-    doLast {
-        outDir.mkdirs()
-        val listing = URI("https://api.github.com/repos/google/fonts/contents/ofl/googlesansflex").toURL().readText()
-        val urls = Regex("\"download_url\"\\s*:\\s*\"([^\"]+)\"").findAll(listing).map { it.groupValues[1] }.toList()
-        val ttf = urls.filter { it.endsWith(".ttf") }.let { all -> all.firstOrNull { !it.contains("Italic") } ?: all.firstOrNull() }
-            ?: error("Google Sans Flex .ttf not found in google/fonts. Download it manually (see task description).")
-        val target = File(outDir, "GoogleSansFlex.ttf")
-        URI(ttf.replace(" ", "%20").replace("[", "%5B").replace("]", "%5D").replace(",", "%2C")).toURL().openStream().use { input ->
-            target.outputStream().use { input.copyTo(it) }
-        }
-        urls.firstOrNull { it.endsWith("OFL.txt") }?.let { lic ->
-            File(outDir, "OFL.txt").writeText(URI(lic).toURL().readText())
-        }
-        println("Saved ${target.length() / 1024} KB to ${target.relativeTo(projectDir)} (from $ttf)")
-    }
-}
-
-/**
  * Refreshes the currency rates built into the app (assets/fx_rates.json) from Frankfurter
  * (ECB and other central banks). Run before a release so the built-in rates are recent:
  *   ./gradlew :app:fetchFxRates
  */
 tasks.register("fetchFxRates") {
-    group = "budgey"
+    group = "mi budget"
     description = "Refresh the built-in currency rates (assets/fx_rates.json)."
     val out = file("src/main/assets/fx_rates.json")
     doLast {
@@ -444,102 +402,5 @@ tasks.register("fetchFxRates") {
         }
         out.writeText(JsonOutput.toJson(mapOf("base" to "EUR", "date" to date, "source" to "Frankfurter (ECB and other central banks), bundled with the app", "rates" to rates)))
         println("Saved ${rates.size} currencies (rates from $date) to ${out.relativeTo(projectDir)}")
-    }
-}
-
-/**
- * Smart scan model (on-device AI). Downloads Gemma 4 from Hugging Face's LiteRT community
- * (Apache 2.0, no login) into <project>/models/. Nothing is bundled into the APK.
- *
- *   ./gradlew :app:fetchScanModel               — Gemma 4 E2B (~2.6 GB, recommended)
- */
-tasks.register("fetchScanModel") {
-    group = "budgey"
-    description = "Download the smart-scan AI model (Gemma 4 .litertlm) into ./models"
-    val variant = (project.findProperty("model") as String?) ?: "E2B"
-    val outDir = rootProject.file("models")
-    doLast {
-        val repo = "litert-community/gemma-4-$variant-it-litert-lm"
-        @Suppress("UNCHECKED_CAST")
-        val info = JsonSlurper().parseText(URI("https://huggingface.co/api/models/$repo").toURL().readText()) as Map<String, Any?>
-        @Suppress("UNCHECKED_CAST")
-        val files = (info["siblings"] as List<Map<String, Any?>>).mapNotNull { it["rfilename"] as? String }
-        // The general Android build: skip web-only, NPU- and chip-specific variants.
-        val skip = listOf("web", "npu", "qualcomm", "mediatek", "sm8", "mt6", "tensor", "int8-")
-        // Must match the file names the app looks for (ScanEngine.file).
-        val expected = "gemma-4-$variant-it.litertlm"
-        val name = files.firstOrNull { it == expected }
-            ?: files.filter { it.endsWith(".litertlm") && skip.none { s -> it.lowercase().contains(s) } }.minByOrNull { it.length }
-            ?: error("No .litertlm file found in $repo. Files: $files")
-        outDir.mkdirs()
-        val target = File(outDir, name.substringAfterLast('/'))
-        val url = "https://huggingface.co/$repo/resolve/main/$name"
-        val conn = URI(url).toURL().openConnection() as HttpURLConnection
-        conn.instanceFollowRedirects = true
-        conn.connectTimeout = 30_000
-        conn.readTimeout = 120_000
-        val total = conn.contentLengthLong
-        if (target.exists() && total > 0 && target.length() == total) {
-            println("Already downloaded: ${target.relativeTo(rootDir)} (${total / 1_000_000} MB)")
-            conn.disconnect()
-            return@doLast
-        }
-        println("Downloading $name (${if (total > 0) "${total / 1_000_000} MB" else "size unknown"}) …")
-        val tmp = File(outDir, target.name + ".part")
-        conn.inputStream.use { input ->
-            tmp.outputStream().use { out ->
-                val buf = ByteArray(1 shl 20)
-                var done = 0L
-                var lastPct = -1
-                while (true) {
-                    val n = input.read(buf)
-                    if (n < 0) break
-                    out.write(buf, 0, n)
-                    done += n
-                    if (total > 0) {
-                        val pct = (done * 100 / total).toInt()
-                        if (pct != lastPct && pct % 5 == 0) { println("  $pct%"); lastPct = pct }
-                    }
-                }
-            }
-        }
-        tmp.renameTo(target)
-        println("Saved ${target.relativeTo(rootDir)}. Next: plug in your phone and run ./gradlew :app:pushScanModel")
-    }
-}
-
-/**
- * Copies the downloaded model to the phone over USB (adb), into the app's own storage folder,
- * where Budgey finds it automatically. Install the app first.
- * Alternative without adb: copy the file to the phone, then Settings → Scanner → Import a model file.
- */
-tasks.register("pushScanModel") {
-    group = "budgey"
-    description = "adb-push the smart-scan model from ./models to the phone"
-    val modelsDir = rootProject.file("models")
-    val sdkDir = rootProject.file("local.properties").takeIf { it.exists() }?.readLines()
-        ?.firstOrNull { it.startsWith("sdk.dir=") }?.substringAfter("=")?.replace("\\:", ":")
-        ?: System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
-    doLast {
-        val model = modelsDir.listFiles()?.filter { it.name.endsWith(".litertlm") }?.maxByOrNull { it.lastModified() }
-            ?: error("No model in ${modelsDir}. Run ./gradlew :app:fetchScanModel first.")
-        val adb = sdkDir?.let { File(it, "platform-tools/adb") }?.takeIf { it.exists() }?.path ?: "adb"
-        fun run(vararg args: String): String {
-            val p = ProcessBuilder(adb, *args).redirectErrorStream(true).start()
-            val text = p.inputStream.bufferedReader().readText()
-            p.waitFor()
-            return text
-        }
-        val installed = run("shell", "pm", "list", "packages", "com.jlees.budgey")
-            .lines().map { it.removePrefix("package:").trim() }.filter { it.startsWith("com.jlees.budgey") }
-        if (installed.isEmpty()) error("Budgey isn't installed on the connected phone (or no phone found via adb). Install the app, then run this again.")
-        for (pkg in installed) {
-            val dir = "/sdcard/Android/data/$pkg/files/models"
-            run("shell", "mkdir", "-p", dir)
-            run("shell", "rm", "-f", "$dir/${model.name}")
-            println("Pushing ${model.name} (${model.length() / 1_000_000} MB) to $pkg … this takes a minute or two over USB.")
-            println(run("push", model.path, "$dir/${model.name}").lines().lastOrNull { it.isNotBlank() } ?: "")
-        }
-        println("Done. Open Budgey → Settings → Scanner to check it's installed.")
     }
 }

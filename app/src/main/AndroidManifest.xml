@@ -2,24 +2,34 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Internet is used for two things only: downloading an optional AI scanner model you choose
-         in Settings → Scanner, and the optional daily currency-rate update pack (Settings → Tools)
-         (no personal data is sent). Your purchases, photos and backups never leave the phone. -->
+    <!-- Internet is used for two things only: the optional daily currency-rate update pack (Settings › Tools), and
+         checking GitHub for a new version of the app (no personal data is sent). Your purchases, photos and backups never leave the phone. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- Local renewal reminders (Android 13+ asks the user). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Updates come from GitHub releases (Settings › About); Android asks before installing. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Settings › About › More mi. Apps opens the other mi. apps when they're installed (Android 11+ needs them named). -->
+    <queries>
+        <package android:name="com.jlees.mibrowser" />
+        <package android:name="com.jlees.minotes" />
+        <package android:name="com.jlees.miedits" />
+        <package android:name="com.jlees.misports" />
+        <package android:name="com.jlees.miweather" />
+    </queries>
 
     <application
-        android:name=".BudgeyApp"
+        android:name=".MiApp"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Budgey"
+        android:theme="@style/Theme.Mi"
         tools:targetApi="36">
 
         <!-- Now that the app has internet access, switch off ML Kit's / Firebase's background usage
@@ -27,10 +37,6 @@
         <service
             android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
             tools:node="remove" />
-
-        <!-- GPU access for the smart-scan AI model (optional: scanning still works without). -->
-        <uses-native-library android:name="libvndksupport.so" android:required="false" />
-        <uses-native-library android:name="libOpenCL.so" android:required="false" />
 
         <activity
             android:name=".MainActivity"
@@ -49,12 +55,17 @@
             </intent-filter>
         </activity>
 
-        <!-- Runs the Vision AI model in a separate process: if the model crashes (e.g. out of
-             memory), only this helper process dies and Budgey keeps running. -->
-        <service
-            android:name=".scan.ModelService"
-            android:exported="false"
-            android:process=":ai" />
+        <!-- Home-screen widget: This Month -->
+        <!-- the daily 9 AM renewal reminders check (and "check now" after an edit) -->
+        <service android:name=".reminders.RenewalReminderJob" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="false" />
+        <!-- the optional daily exchange-rate download (Settings › Budget › Exchange Rates) -->
+        <service android:name=".data.FxRatesJob" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="false" />
+        <receiver android:name=".widget.MonthWidget" android:exported="false" android:label="@string/widget_month">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_month_info" />
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

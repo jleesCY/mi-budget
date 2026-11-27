@@ -1,152 +1,67 @@
-<p align="center">
-  <img src="docs/images/budgey-icon.svg" alt="Budgey app icon: a budgie hugging a gold coin" width="140">
-</p>
+<p align="center"><img src="docs/public/icon.svg" width="96" alt="mi. Budget icon: a green wallet whose snap is mi.'s dot" /></p>
 
-<h1 align="center">Budgey</h1>
+<h1 align="center">mi. Budget</h1>
 
 <p align="center">
-  A friendly, private budget tracker for Android.<br>
-  Track purchases, budgets and subscriptions — scan receipts, split checks, and keep everything on your phone.
+  <strong>Your purchases, budgets and subscriptions, private on your phone.</strong>
 </p>
 
 <p align="center">
-  <img alt="Version 0.1.1" src="https://img.shields.io/badge/version-0.1.1-F28C28">
-  <img alt="Android 12+" src="https://img.shields.io/badge/Android-12%2B-3F9B3A">
-  <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF">
-  <img alt="Material 3 Expressive" src="https://img.shields.io/badge/Material%203-Expressive-FFC83D">
-  <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-2F6FB5">
+  <a href="https://github.com/mi-app-hub/mi-budget/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/mi-app-hub/mi-budget?sort=semver&color=34C759"></a>
+  <img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white">
+  <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white">
+  <img alt="Material 3 Expressive" src="https://img.shields.io/badge/Material%203-Expressive-34C759">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-green.svg"></a>
 </p>
 
----
+<p align="center">
+  <img src="docs/public/images/home.jpg" width="240" alt="This month: a donut chart of spending by category, the total and what's left of your budgets" />
+  <img src="docs/public/images/subscriptions.jpg" width="240" alt="Subscriptions: monthly total, a free-trial warning and what renews next" />
+  <img src="docs/public/images/calendar.jpg" width="240" alt="The calendar: each day shaded by spending, with renewal marks" />
+</p>
 
-## How it's built
+**mi. Budget** shows you this month at a glance: what you've spent, where it went and what's left of your budgets. Scan a receipt or type a purchase in, swipe between months, and keep an eye on subscriptions and free trials before they charge you. Everything stays on your phone: no accounts, no ads, no tracking.
 
-Budgey is a native Android app written in **Kotlin** with **Jetpack Compose** and **Material 3 Expressive**.
-It is offline-first: data lives in a local **Room (SQLite)** database, settings in **DataStore**, and money
-is stored as whole cents so totals never drift. The domain logic (money, billing cycles, budget math, the
-receipt parser, check splitting) is plain Kotlin with no Android dependencies, so it is unit-tested and
-ready to share with other platforms later. Receipt scanning runs on the phone with **ML Kit** text
-recognition plus Budgey's own parser, and optional AI scanners (**Gemini Nano** where the phone has it, or
-a downloadable **Gemma 4** vision model via **LiteRT-LM**) run on-device too — the AI model runs in its own
-process so a model crash can never take the app down. Background work (renewal reminders, optional
-currency-rate updates) uses **WorkManager**.
+**[Website](https://mi-app-hub.github.io/mi-budget)** · **[User Guide](https://mi-app-hub.github.io/mi-budget/user)** · **[Download](https://github.com/mi-app-hub/mi-budget/releases/latest)**
 
-Building from source, project layout and design decisions: **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
+## Highlights
+- **One bar for everything**: a big + adds a purchase, with the calendar and a menu (search, filters, the tools, your renewals and payment methods) beside it, your Library at the left and Settings at the right. Swipe the bar right, left or up and those pages follow your finger in; hold it to search.
+- **A purchase's own buttons**: open a purchase or subscription and the bar becomes its buttons (Delete, Refund, Edit). Swipe it right to go back, with the page following your finger.
+- **Charts that read at any size**: donut, pie, rings, bars or trend. Small categories still get a proper segment; touch and hold a slice to preview it.
+- **Scanning on the phone**: receipts, banking screenshots and pump screens, read on-device, with Gemini Nano on phones that have it.
+- **Subscriptions and trials**: monthly and yearly totals, renewal reminders, payments that log themselves, and a warning before a free trial starts charging.
+- **Budgets and categories** you can nest as deep as you like, with weekly to yearly budgets that roll up.
+- **Refunds**, in full or in part: only what you kept counts. Swipe a purchase right to refund it or left to delete it, with Undo for both.
+- **Nothing is lost**: deleting shows Undo, and deleted purchases and subscriptions wait in Recently Deleted for 30 days.
+- **Tools**: check splitter, tip calculator, an offline currency converter, and a This Month widget.
+- **Material 3 Expressive**: dark, light or Pure Black, seven accents or your wallpaper's colours, font, corners and spacing your way. Hide it from screenshots if you like.
+- **Backups are files you keep**: back up everything (receipt photos included) to a `.mibudgetdata` file and restore it on any phone.
 
----
-
-## Features
-
-### Purchases
-- A big overview chart (donut, pie, bars, trend or rings) with the month's total, change vs. last month,
-  and how much of your budgets is left — tap a slice to drill into that category. On the donut, pie and
-  rings, **touch and hold** a slice to preview that category (amount and share), then slide your finger
-  around to preview others, with a crisp haptic tick each time it changes.
-- The round **+** button to scan a receipt or type one in. Every purchase gets a logo automatically from ~950
-  known merchants, banks and services, or pick your own (logo, a few letters, or a photo).
-- Tapping a purchase opens a read-only preview first, so nothing changes by accident; tap ✎ to edit.
-- Left a new purchase or subscription half-done (or a scan on its review screen)? A separate **⟲ Resume**
-  button appears right beside the **+** (the two form a pill) to pick up exactly where you left off — as
-  soon as you've entered anything at all.
-- Purchases and subscriptions are added separately: + on Purchases (scan or by hand) always makes a
-  purchase, + on Subscriptions always a subscription.
-- Search and filters: dates, categories, amounts, payment method, source, receipts — plus multi-select to
-  categorize or delete in bulk (with undo).
-
-### Scanning receipts and screenshots
-- One button opens your camera or photos. Budgey reads **receipts**, **banking-app screenshots** and
-  **gas-pump or kiosk screens**, and works out the merchant, total, date — and whether it's a purchase or
-  a subscription.
-- Not quite right? **Rescan**, or **Advanced Rescan** with an AI model, from the review screen.
-- Fully discounted receipts (a 100% off coupon, a comped item) come out as **$0.00**, not the item's price,
-  and $0 purchases can be saved.
-- Optional on-device AI scanners in Settings → Scanner & AI models. Your photos never leave the phone.
-
-### Budgets & Categories
-- Categories are folders you can nest as deep as you like.
-- Give any category a weekly, monthly, quarterly or yearly budget; parent budgets include their children.
-- The Budgets view shows what's on pace, ahead or over.
-
-### Subscriptions
-- See what you spend per month and per year, what's coming up next, and when free trials end.
-- **Free trials** are free: no renewals show (or get logged) during the trial; billing starts the day it
-  ends. When a trial ends you get a notification and a warning on the Subscriptions page — **Keep it**
-  or cancel it.
-- Payments can be logged automatically on each billing date, so budgets stay accurate.
-- Price history (e.g. a student discount that ended), pause / cancel / resume without losing the past.
-- Renewal reminders a day (or a few days) ahead.
-
-### Calendar
-- A month view shaded by how much you spent each day, with a purchase count and renewal markers.
-- Tap a day to see everything on it, or add a purchase on that date. Purchases there look exactly like
-  the Purchases list: category, payment method, and receipt / subscription marks.
-
-### Tools (☰ → Tools)
-- **Check splitter** — scan the bill to pull in every item, add people, then split **evenly**, by **custom**
-  amounts or percentages, or **by item** (shared items split between whoever had them). A row that stands
-  for several of the same thing ("5 Burgers … $50", "Burger x5", "5 @ 10.00") becomes one item per unit, so
-  each burger can go to a different person. Choose who chips in
-  for the tip. Everyone's share is rounded up to the cent. Progress is saved if you leave, and you can share
-  the result with the group.
-- **Tip calculator** — type a percentage or an amount and the other updates; tip before or after tax.
-- **Currency converter** — about 160 currencies built in, works fully offline. Optionally add daily rate
-  updates (a ~10 KB download) in Settings → Tools.
-
-### Make it yours
-- Light, dark or pure-black themes, budgie-colored accents or Material You colors.
-- Google Sans Flex or your system font, adjustable text size, and an Animations switch.
-- Saved payment methods with their own icons.
-
----
-
-## Your data stays yours
-
-- **No accounts, no ads, no analytics.** Everything is stored on your phone.
-- Budgey only uses the internet when *you* choose to download an AI scanner model or turn on daily
-  currency-rate updates — and those requests carry no personal data.
-- **Export** everything (including receipt photos) to a single `.zip`, and **import** it again — all of it,
-  or just the categories you pick — on the same or another phone.
-- Erasing all data takes several deliberate steps, and a safety copy is kept for 7 days (or delete it
-  right away in Settings).
-- **No cloud backup.** When you set up a new phone, Android's phone-to-phone transfer brings your
-  data across, but never the post-erase safety copy or downloaded AI models.
-
----
+See everything mi. Budget does in the **[User Guide](https://mi-app-hub.github.io/mi-budget/user)**.
 
 ## Install
+Download `mi-budget-<version>-release.apk` from the **[latest release](https://github.com/mi-app-hub/mi-budget/releases/latest)** and open it on your phone (Android 8.0 or newer). mi. Budget checks for updates itself (Settings › About › Check for Updates) and shows what's new after each one; your data stays.
 
-Budgey isn't on the Play Store yet. To install it:
+Coming from Budgey? It's a separate app: export a backup in Budgey (Settings › Your Data › Export), then restore it in mi. Budget (Settings › Backup & Reset › Restore).
 
-1. Download **`Budgey-<version>-release.apk`** from the latest release on this repository's
-   **[Releases](../../releases/latest)** page.
-2. On your phone, open the APK and allow installing from that source when asked.
-3. Later versions install right over it — your data stays.
+## Build from source
+Requires Android Studio, or JDK 17+ with the Android SDK.
 
-Requires **Android 12** or newer. AI scanning needs a phone with at least 8 GB of RAM (or one with Gemini Nano).
+```bash
+git clone https://github.com/mi-app-hub/mi-budget.git
+cd mi-budget
+./gradlew :app:installDebug         # build and install mi. Budget dev beside the release
+./gradlew :app:testDebugUnitTest    # run the unit tests
+```
 
-> Already running a copy you built yourself in Android Studio? It may be signed with a different key, so
-> Android won't update it with the release APK. **Settings → Export** a backup, uninstall, install the
-> release, then **Import**.
+How the code is organized is in the **[Developer Guide](https://mi-app-hub.github.io/mi-budget/developer)** and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The website lives in [`docs/`](docs) (Next.js); its colours are generated from the app's default accent by `docs/scripts/theme.mjs`, and `npm run deploy` there publishes it to GitHub Pages.
 
-Want to build it yourself? See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — including
-[how to make a release](docs/DEVELOPMENT.md#making-a-release).
-
----
-
-## What's new
-
-See the [changelog](CHANGELOG.md) — the latest is **[0.1.1](docs/releases/v0.1.1.md)**.
-
-## Roadmap
-
-Ideas being considered next are collected in [FUTURE_IDEAS.md](FUTURE_IDEAS.md). The October 2026 code
-audit and what was done about each finding are in [docs/AUDIT.md](docs/AUDIT.md).
+## More mi. Apps
+- [mi. Browser](https://github.com/mi-app-hub/mi-browser): a simple, private browser built around one Pill.
+- [mi. Notes](https://github.com/mi-app-hub/mi-notes): notes in folders on one calm page.
+- [mi. Edits](https://github.com/mi-app-hub/mi-edits): a simple, private video and audio editor.
+- [mi. Sports](https://github.com/mi-app-hub/mi-sports): live scores for the teams, players and leagues you follow.
+- [mi. Weather](https://github.com/mi-app-hub/mi-weather): every detail of the weather where you are, all inside the app.
 
 ## License
-
-Budgey is released under the [MIT License](LICENSE).
-
-Brand logos come from [Simple Icons](https://simpleicons.org) (CC0) and open icon sets via
-[Iconify](https://iconify.design); all trademarks belong to their owners. Exchange rates come from
-[Frankfurter](https://frankfurter.dev) (European Central Bank and other central banks). AI models:
-Gemma 4 (Apache 2.0) and Gemini Nano (built into supported phones).
+[MIT](LICENSE). mi. Budget collects no personal data: see the [Privacy Policy](https://mi-app-hub.github.io/mi-budget/privacy). Bundled assets keep their own licences: Google Sans Flex (SIL Open Font License) and Material Symbols (Apache 2.0). Brand logos come from [Simple Icons](https://simpleicons.org) (CC0) and open icon sets via [Iconify](https://iconify.design); trademarks belong to their owners. Exchange rates come from [Frankfurter](https://frankfurter.dev). On-device AI: Gemini Nano (built into supported phones).

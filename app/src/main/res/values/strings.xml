@@ -1,6 +1,8 @@
 <resources>
-    <string name="app_name">Budgey</string>
+    <string name="app_name">mi. Budget</string>
     <!-- Shown by Android in the app's notification settings. -->
     <string name="channel_renewals_name">Subscription renewals</string>
     <string name="channel_renewals_description">Reminders before subscriptions renew and free trials end</string>
+    <string name="widget_month">This Month</string>
+    <string name="widget_month_description">What you\'ve spent this month and what\'s left of your budgets</string>
 </resources>

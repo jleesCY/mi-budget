@@ -1,3 +1,8 @@
 <resources>
-    <color name="splash_bg">#141218</color>
+    <!-- the widget: fixed Material tones before Android 12 (values-night-v31 takes the wallpaper's colours) -->
+    <color name="widget_surface">#FF2D312D</color>
+    <color name="widget_text">#FFE1E3DD</color>
+    <color name="widget_subtext">#FFC1C9BF</color>
+    <color name="widget_accent">#FF8ADA8F</color>
+    <color name="widget_ripple">#1FFFFFFF</color>
 </resources>

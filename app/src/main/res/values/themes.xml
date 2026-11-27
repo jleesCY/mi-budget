@@ -1,8 +1,9 @@
 <resources>
-    <!-- Compose draws everything; this only styles the window before Compose starts. -->
-    <style name="Theme.Budgey" parent="android:Theme.Material.Light.NoActionBar">
+    <!-- Compose draws everything; this only styles the window before Compose starts: the icon's near-black, so the
+         launch matches the splash screen (and the ring round the dot doesn't show). -->
+    <style name="Theme.Mi" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowBackground">@color/splash_bg</item>
+        <item name="android:windowBackground">@color/icon_background</item>
     </style>
 </resources>

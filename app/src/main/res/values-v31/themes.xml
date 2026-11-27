@@ -1,0 +1,11 @@
+<resources>
+    <!-- Android 12+: the system splash screen shows the icon's foreground on the icon's near-black (before 12, the window
+         background alone, the same near-black) -->
+    <style name="Theme.Mi" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/icon_background</item>
+        <item name="android:windowSplashScreenBackground">@color/icon_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
+</resources>
